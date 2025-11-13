@@ -1,0 +1,82 @@
+rules:
+  - id: rule_1
+    label: Prime Age Range
+    condition: age >= 25 and age <= 45
+    points: 20.0
+    description: "Customers in prime age range (25-45) are more likely to convert. This demographic typically has stable income and financial needs."
+    enabled: true
+    threshold: null
+
+  - id: rule_2
+    label: High Balance
+    condition: balance > 5000
+    points: 25.0
+    description: "Customers with high balance (>$5000) have better conversion potential. Higher balance indicates financial stability and capacity."
+    enabled: true
+    threshold: 5000.0
+
+  - id: rule_3
+    label: Previous Success
+    condition: poutcome == 'success'
+    points: 30.0
+    description: "Customers with previous successful campaign outcome are highly likely to convert again. Past success is a strong predictor."
+    enabled: true
+    threshold: null
+
+  - id: rule_4
+    label: Management Job
+    condition: job == 'management' or job == 'admin.'
+    points: 15.0
+    description: "Management and administrative positions typically have higher income and decision-making power, leading to better conversion rates."
+    enabled: true
+    threshold: null
+
+  - id: rule_5
+    label: Tertiary Education
+    condition: education == 'tertiary'
+    points: 10.0
+    description: "Customers with tertiary education (university degree) tend to have higher financial literacy and engagement with financial products."
+    enabled: true
+    threshold: null
+
+  - id: rule_6
+    label: Married Status
+    condition: marital == 'married'
+    points: 8.0
+    description: "Married customers often have joint financial goals and higher combined income, making them more likely to engage with financial products."
+    enabled: true
+    threshold: null
+
+  - id: rule_7
+    label: Previous Campaign Contact
+    condition: previous > 0
+    points: 12.0
+    description: "Customers who have been contacted in previous campaigns show engagement and are more likely to respond positively."
+    enabled: true
+    threshold: null
+
+  - id: rule_8
+    label: Recent Contact Days
+    condition: pdays < 30 and pdays >= 0
+    points: 18.0
+    description: "Recent contact (within 30 days) indicates active engagement and higher conversion probability due to recency effect."
+    enabled: true
+    threshold: null
+
+  - id: rule_9
+    label: Multiple Campaign Contacts
+    condition: campaign > 2
+    points: -5.0
+    description: "Too many campaign contacts (>2) may indicate customer fatigue or lack of interest, reducing conversion probability."
+    enabled: true
+    threshold: null
+
+  - id: rule_10
+    label: Very High Balance
+    condition: balance > 20000
+    points: 35.0
+    description: "Very high balance customers (>$20,000) are premium targets with excellent conversion potential and high lifetime value."
+    enabled: true
+    threshold: 20000.0
+
+

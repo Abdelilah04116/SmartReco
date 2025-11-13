@@ -1,0 +1,2 @@
+"""SmartReco Backend Application."""
+

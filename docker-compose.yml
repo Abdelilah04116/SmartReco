@@ -1,0 +1,63 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smart-reco-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - API_KEY=${API_KEY:-demo-api-key-change-in-production}
+      - DEBUG=${DEBUG:-false}
+      - HOST=0.0.0.0
+      - PORT=8000
+    volumes:
+      - ./rules_config.yaml:/app/rules_config.yaml:ro
+      - ./data:/app/data:ro
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - smart-reco-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: smart-reco-frontend
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend/src:/app/src:ro
+      - ./frontend/public:/app/public:ro
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    networks:
+      - smart-reco-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: smart-reco-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - smart-reco-network
+
+networks:
+  smart-reco-network:
+    driver: bridge
+
+volumes:
+  logs:
+  data:
+
