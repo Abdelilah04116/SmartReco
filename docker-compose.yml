@@ -13,7 +13,7 @@ services:
       - PORT=8000
     volumes:
       - ./rules_config.yaml:/app/rules_config.yaml:ro
-      - ./data:/app/data:ro
+      - ./data:/app/data:rw
       - ./logs:/app/logs
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -28,28 +28,13 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:8000
     container_name: smart-reco-frontend
-    depends_on:
-      - backend
-    volumes:
-      - ./frontend/src:/app/src:ro
-      - ./frontend/public:/app/public:ro
-    environment:
-      - VITE_API_URL=http://localhost:8000
-    networks:
-      - smart-reco-network
-
-  nginx:
-    image: nginx:alpine
-    container_name: smart-reco-nginx
     ports:
       - "80:80"
-    volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./frontend/dist:/usr/share/nginx/html:ro
     depends_on:
       - backend
-      - frontend
     networks:
       - smart-reco-network
 

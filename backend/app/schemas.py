@@ -31,6 +31,7 @@ class ScoreResponse(BaseModel):
     results: List[CustomerScore]
     total_scored: int
     summary: Dict[str, int] = Field(default_factory=dict)
+    model_scores: Optional[Dict[str, List[float]]] = None
 
 
 class RecommendationResponse(BaseModel):
@@ -84,5 +85,49 @@ class CampaignSimulationResponse(BaseModel):
     medium_priority_count: int
     low_priority_count: int
     kpis: Dict[str, Any] = Field(default_factory=dict)
+
+
+class DatasetMetadataResponse(BaseModel):
+    """Metadata about an ingested dataset."""
+    dataset_id: str
+    source_filename: str
+    ingestion_timestamp: str
+    records_total: int
+    records_valid: int
+    records_invalid: int
+    columns: List[str]
+
+
+class ModelTrainingResponse(BaseModel):
+    """Response containing training metrics and versions."""
+    dataset_id: str
+    models: Dict[str, Any]
+
+
+class ModelTrainingRequest(BaseModel):
+    """Request controlling model training execution."""
+    dataset_id: Optional[str] = None
+    model_names: Optional[List[str]] = None
+
+
+class ModelPredictionRequest(BaseModel):
+    """Request for model inference using the latest registered model."""
+    model_name: str
+    records: List[Dict[str, Any]]
+
+
+class ModelPredictionResponse(BaseModel):
+    """Response containing model predictions and explanations."""
+    model_name: str
+    version: str
+    probabilities: List[float]
+    predictions: List[int]
+    explanations: Optional[List[Dict[str, Any]]] = None
+
+
+class MonitoringMetricsResponse(BaseModel):
+    """Response for monitoring metrics and drift detection."""
+    metrics: Dict[str, Any]
+    drift: Dict[str, Any]
 
 
