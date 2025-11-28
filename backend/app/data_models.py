@@ -87,3 +87,4 @@ class BankMarketingRecord(BankMarketingRawRecord):
 
 
 
+
