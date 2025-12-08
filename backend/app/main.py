@@ -113,15 +113,15 @@ async def upload_dataset(file: UploadFile = File(...)):
     Upload a CSV dataset.
     
     Returns:
-        Upload confirmation with row count
+        Upload confirmation with row count and error report if applicable.
     """
     global scored_customers_cache, latest_dataset_metadata, latest_dataset_id, reference_score_series, explainability_service
-    
+
     try:
         # Read file content
         content = await file.read()
         csv_content = content.decode('utf-8')
-        
+
         # Parse CSV
         df = parse_csv_data(csv_content)
 
