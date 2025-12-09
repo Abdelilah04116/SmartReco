@@ -97,6 +97,33 @@ export interface CampaignSimulationResponse {
   kpis: Record<string, any>;
 }
 
+export interface ColumnStatisticsResponse {
+  columns: string[];
+  numeric_columns: string[];
+  categorical_columns: string[];
+  datetime_columns: string[];
+  column_stats: Record<string, any>;
+  available_charts: string[];
+}
+
+export interface AIAnalysisResponse {
+  analysis: Record<string, any>;
+  recommendations: Record<string, any>;
+  transformation_plan: Record<string, any>;
+  suggested_charts: Array<{
+    type: string;
+    reason: string;
+    columns: string[];
+    priority: string;
+  }>;
+  feature_engineering_suggestions: Array<{
+    type: string;
+    formula: string;
+    reason: string;
+  }>;
+  ai_enabled: boolean;
+}
+
 // API functions
 export const apiService = {
   // Health check
@@ -164,6 +191,18 @@ export const apiService = {
   // Simulate campaign
   simulateCampaign: async (topN: number = 50) => {
     const response = await api.post<CampaignSimulationResponse>('/simulate_campaign', { top_n: topN });
+    return response.data;
+  },
+
+  // Get dataset statistics
+  getDatasetStatistics: async () => {
+    const response = await api.get<ColumnStatisticsResponse>('/datasets/latest/statistics');
+    return response.data;
+  },
+
+  // Get AI analysis and recommendations
+  getAIAnalysis: async () => {
+    const response = await api.get<AIAnalysisResponse>('/datasets/latest/ai-analysis');
     return response.data;
   },
 };

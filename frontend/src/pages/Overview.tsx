@@ -1,7 +1,13 @@
 import { useState } from 'react';
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { 
+  BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, 
+  Tooltip, Legend, ResponsiveContainer, LineChart, Line, AreaChart, 
+  Area, ScatterChart, Scatter 
+} from 'recharts';
 import KpiCard from '../components/KpiCard';
 import RulesEditor from '../components/RulesEditor';
+import ChartSelector, { ChartType } from '../components/ChartSelector';
+import AIRecommendations from '../components/AIRecommendations';
 import { apiService, ScoreResponse } from '../services/api';
 
 const Overview = () => {
@@ -9,6 +15,7 @@ const Overview = () => {
   const [error, setError] = useState<string | null>(null);
   const [scoreData, setScoreData] = useState<ScoreResponse | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [selectedCharts, setSelectedCharts] = useState<ChartType[]>(['bar', 'pie']);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -45,29 +52,128 @@ const Overview = () => {
     }
   };
 
-  const chartData = scoreData
-    ? [
-        { name: 'High', value: scoreData.summary.high, color: '#10b981' },
-        { name: 'Medium', value: scoreData.summary.medium, color: '#f59e0b' },
-        { name: 'Low', value: scoreData.summary.low, color: '#ef4444' },
-      ]
-    : [];
-
-  const barChartData = scoreData
-    ? [
-        { priority: 'High', count: scoreData.summary.high },
-        { priority: 'Medium', count: scoreData.summary.medium },
-        { priority: 'Low', count: scoreData.summary.low },
-      ]
-    : [];
-
   const COLORS = ['#10b981', '#f59e0b', '#ef4444'];
+
+  const renderChart = (chartType: ChartType) => {
+    if (!scoreData) return null;
+
+    const commonData = [
+      { priority: 'High', count: scoreData.summary.high, value: scoreData.summary.high },
+      { priority: 'Medium', count: scoreData.summary.medium, value: scoreData.summary.medium },
+      { priority: 'Low', count: scoreData.summary.low, value: scoreData.summary.low },
+    ];
+
+    const pieData = [
+      { name: 'High', value: scoreData.summary.high, color: '#10b981' },
+      { name: 'Medium', value: scoreData.summary.medium, color: '#f59e0b' },
+      { name: 'Low', value: scoreData.summary.low, color: '#ef4444' },
+    ];
+
+    switch (chartType) {
+      case 'bar':
+        return (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold mb-4">Priority Distribution (Bar)</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={commonData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="priority" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="count" fill="#0ea5e9" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        );
+      
+      case 'pie':
+        return (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold mb-4">Priority Distribution (Pie)</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {pieData.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        );
+      
+      case 'line':
+        return (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold mb-4">Priority Distribution (Line)</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={commonData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="priority" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="count" stroke="#0ea5e9" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        );
+      
+      case 'area':
+        return (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold mb-4">Priority Distribution (Area)</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={commonData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="priority" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Area type="monotone" dataKey="count" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.6} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        );
+      
+      case 'scatter':
+        return (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold mb-4">Priority Distribution (Scatter)</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <ScatterChart data={commonData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="priority" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Scatter dataKey="count" fill="#0ea5e9" />
+              </ScatterChart>
+            </ResponsiveContainer>
+          </div>
+        );
+      
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Overview</h1>
-        <p className="text-gray-600">Upload and score customer data using business rules</p>
+        <p className="text-gray-600">Upload and score customer data using business rules - Supports any CSV structure</p>
       </div>
 
       {/* Upload Section */}
@@ -130,45 +236,29 @@ const Overview = () => {
             />
           </div>
 
-          {/* Charts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold mb-4">Priority Distribution (Bar)</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={barChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="priority" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="count" fill="#0ea5e9" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+              {/* AI Recommendations */}
+          <AIRecommendations 
+            onChartsSelected={(chartTypes) => {
+              setSelectedCharts(chartTypes as ChartType[]);
+            }}
+          />
 
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold mb-4">Priority Distribution (Pie)</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {chartData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+          {/* Chart Selector */}
+          <ChartSelector 
+            selectedCharts={selectedCharts} 
+            onChartsChange={setSelectedCharts}
+          />
+
+          {/* Charts - Dynamic rendering based on selection */}
+          {selectedCharts.length > 0 && (
+            <div className={`grid grid-cols-1 ${selectedCharts.length === 1 ? 'md:grid-cols-1' : selectedCharts.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-3'} gap-6`}>
+              {selectedCharts.map((chartType) => (
+                <div key={chartType}>
+                  {renderChart(chartType)}
+                </div>
+              ))}
             </div>
-          </div>
+          )}
         </>
       )}
 

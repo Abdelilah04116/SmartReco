@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     SHAP_BACKGROUND_SAMPLE_SIZE: int = int(os.getenv("SHAP_BACKGROUND_SAMPLE_SIZE", "200"))
     LIME_NUM_FEATURES: int = int(os.getenv("LIME_NUM_FEATURES", "10"))
     
+    # AI Agent (Gemini)
+    GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY")
+    AI_AGENT_ENABLED: bool = os.getenv("AI_AGENT_ENABLED", "true").lower() == "true"
+    
     # Scoring Configuration
     PRIORITY_THRESHOLDS: dict = {
         "high": 50,

@@ -11,7 +11,8 @@ from .schemas import (
     CustomerDetailResponse, RulesResponse, RuleUpdateRequest,
     CampaignSimulationRequest, CampaignSimulationResponse,
     DatasetMetadataResponse, ModelTrainingRequest, ModelTrainingResponse,
-    ModelPredictionRequest, ModelPredictionResponse, MonitoringMetricsResponse
+    ModelPredictionRequest, ModelPredictionResponse, MonitoringMetricsResponse,
+    ColumnStatisticsResponse, AIAnalysisResponse
 )
 from .scoring_rules import rule_engine
 from .recommender import recommender
@@ -22,6 +23,8 @@ from .modeling import ModelRegistry, ModelTrainingService
 from .experiments.runner import ExperimentRunner
 from .monitoring import compute_monitoring_metrics, detect_drift
 from .explainability import ExplainabilityService
+from .schema_detection import schema_detector
+from .ai_agent import ai_agent
 
 # Configure logging
 logger.add("logs/app.log", rotation="10 MB", retention="10 days", level="INFO")
@@ -110,7 +113,7 @@ async def health():
 @app.post("/upload", response_model=DatasetMetadataResponse)
 async def upload_dataset(file: UploadFile = File(...)):
     """
-    Upload a CSV dataset.
+    Upload a CSV dataset. Supports any CSV structure and large files (chunked processing).
     
     Returns:
         Upload confirmation with row count and error report if applicable.
@@ -118,15 +121,49 @@ async def upload_dataset(file: UploadFile = File(...)):
     global scored_customers_cache, latest_dataset_metadata, latest_dataset_id, reference_score_series, explainability_service
 
     try:
-        # Read file content
+        # Check file size
         content = await file.read()
-        csv_content = content.decode('utf-8')
+        file_size_mb = len(content) / (1024 * 1024)
+        
+        if file_size_mb > 500:  # 500MB limit
+            raise HTTPException(
+                status_code=400, 
+                detail=f"File too large: {file_size_mb:.2f}MB. Maximum size is 500MB."
+            )
+        
+        # Try different encodings
+        csv_content = None
+        for encoding in ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252']:
+            try:
+                csv_content = content.decode(encoding)
+                break
+            except UnicodeDecodeError:
+                continue
+        
+        if csv_content is None:
+            raise HTTPException(status_code=400, detail="Could not decode file. Please ensure it's a valid CSV file.")
 
-        # Parse CSV
-        df = parse_csv_data(csv_content)
+        # Parse CSV with chunking support for large files
+        if file_size_mb > 10:  # Use chunking for files > 10MB
+            logger.info(f"Large file detected ({file_size_mb:.2f}MB), using chunked processing")
+            # For very large files, we'll process in chunks
+            from io import StringIO
+            import pandas as pd
+            chunk_list = []
+            chunk_size = 50000
+            for chunk in pd.read_csv(StringIO(csv_content), chunksize=chunk_size, low_memory=False):
+                chunk_list.append(chunk)
+            df = pd.concat(chunk_list, ignore_index=True)
+            logger.info(f"Loaded {len(df)} rows from {len(chunk_list)} chunks")
+        else:
+            df = parse_csv_data(csv_content)
 
-        # Ingest and persist dataset
-        metadata = data_ingestion_service.ingest(df, source_filename=file.filename)
+        # Ingest and persist dataset (with automatic chunking for large datasets)
+        metadata = data_ingestion_service.ingest(
+            df, 
+            source_filename=file.filename,
+            use_chunks=file_size_mb > 10
+        )
         latest_dataset_metadata = metadata
         latest_dataset_id = metadata["dataset_id"]
         scored_customers_cache = []
@@ -152,6 +189,8 @@ async def upload_dataset(file: UploadFile = File(...)):
     except StorageError as exc:
         logger.error(f"Storage error during dataset upload: {exc}")
         raise HTTPException(status_code=500, detail=f"Storage error: {str(exc)}")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error uploading dataset: {e}")
         raise HTTPException(status_code=400, detail=f"Error processing file: {str(e)}")
@@ -172,6 +211,78 @@ async def get_latest_dataset_metadata():
         records_invalid=meta["quality_report"]["records_invalid"],
         columns=meta["columns"],
     )
+
+
+@app.get("/datasets/latest/statistics", response_model=ColumnStatisticsResponse)
+async def get_dataset_statistics():
+    """Get column statistics for the latest dataset (for visualizations)."""
+    if latest_dataset_id is None:
+        raise HTTPException(status_code=404, detail="No dataset has been uploaded yet.")
+    
+    try:
+        dataset = storage_manager.load_dataframe(
+            latest_dataset_id,
+            subdir=settings.NORMALIZED_DATA_SUBDIR,
+        )
+        
+        # Detect schema
+        schema = schema_detector.detect_schema(dataset, sample_size=min(10000, len(dataset)))
+        
+        return ColumnStatisticsResponse(
+            columns=schema["columns"],
+            numeric_columns=schema["numeric_columns"],
+            categorical_columns=schema["categorical_columns"],
+            datetime_columns=schema["datetime_columns"],
+            column_stats=schema["column_stats"],
+        )
+    except StorageError as exc:
+        raise HTTPException(status_code=500, detail=f"Error loading dataset: {str(exc)}")
+
+
+@app.get("/datasets/latest/ai-analysis", response_model=AIAnalysisResponse)
+async def get_ai_analysis():
+    """
+    Get AI agent analysis and recommendations for the latest dataset.
+    Uses Gemini AI to analyze the data and suggest transformations and visualizations.
+    """
+    if latest_dataset_id is None:
+        raise HTTPException(status_code=404, detail="No dataset has been uploaded yet.")
+    
+    try:
+        dataset = storage_manager.load_dataframe(
+            latest_dataset_id,
+            subdir=settings.NORMALIZED_DATA_SUBDIR,
+        )
+        
+        # Check if AI analysis already exists in metadata
+        if latest_dataset_metadata and latest_dataset_metadata.get("ai_analysis"):
+            ai_analysis = latest_dataset_metadata["ai_analysis"]
+            return AIAnalysisResponse(
+                analysis=ai_analysis.get("analysis", {}),
+                recommendations=ai_analysis.get("recommendations", {}),
+                transformation_plan=ai_analysis.get("transformation_plan", {}),
+                suggested_charts=ai_analysis.get("suggested_charts", []),
+                feature_engineering_suggestions=ai_analysis.get("feature_engineering_suggestions", []),
+                ai_enabled=settings.AI_AGENT_ENABLED and ai_agent.model is not None,
+            )
+        
+        # Run new analysis
+        logger.info("Running AI agent analysis...")
+        ai_analysis = ai_agent.analyze_dataset(dataset, sample_size=min(5000, len(dataset)))
+        
+        return AIAnalysisResponse(
+            analysis=ai_analysis.get("analysis", {}),
+            recommendations=ai_analysis.get("recommendations", {}),
+            transformation_plan=ai_analysis.get("transformation_plan", {}),
+            suggested_charts=ai_analysis.get("suggested_charts", []),
+            feature_engineering_suggestions=ai_analysis.get("feature_engineering_suggestions", []),
+            ai_enabled=settings.AI_AGENT_ENABLED and ai_agent.model is not None,
+        )
+    except StorageError as exc:
+        raise HTTPException(status_code=500, detail=f"Error loading dataset: {str(exc)}")
+    except Exception as e:
+        logger.error(f"Error in AI analysis: {e}")
+        raise HTTPException(status_code=500, detail=f"Error running AI analysis: {str(e)}")
 
 
 @app.post("/score", response_model=ScoreResponse)

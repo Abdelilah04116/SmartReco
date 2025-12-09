@@ -131,3 +131,25 @@ class MonitoringMetricsResponse(BaseModel):
     drift: Dict[str, Any]
 
 
+class ColumnStatisticsResponse(BaseModel):
+    """Response containing column statistics for visualizations."""
+    columns: List[str]
+    numeric_columns: List[str]
+    categorical_columns: List[str]
+    datetime_columns: List[str]
+    column_stats: Dict[str, Any]
+    available_charts: List[str] = Field(
+        default_factory=lambda: ["bar", "pie", "line", "area", "scatter", "histogram", "box"]
+    )
+
+
+class AIAnalysisResponse(BaseModel):
+    """Response containing AI agent analysis and recommendations."""
+    analysis: Dict[str, Any]
+    recommendations: Dict[str, Any]
+    transformation_plan: Dict[str, Any]
+    suggested_charts: List[Dict[str, Any]]
+    feature_engineering_suggestions: List[Dict[str, Any]]
+    ai_enabled: bool = True
+
+
