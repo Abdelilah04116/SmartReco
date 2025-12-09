@@ -15,11 +15,13 @@ const RulesEditor = () => {
   const loadRules = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await apiService.getRules();
       setRules(response.rules);
-      setError(null);
     } catch (err: any) {
-      setError(err.message || 'Failed to load rules');
+      const errorMessage = err.response?.data?.detail || err.response?.data?.message || err.message || 'Failed to load rules';
+      setError(errorMessage);
+      console.error('Error loading rules:', err);
     } finally {
       setLoading(false);
     }
@@ -46,7 +48,9 @@ const RulesEditor = () => {
       setEditingRule(null);
       setEditValues({});
     } catch (err: any) {
-      setError(err.message || 'Failed to update rule');
+      const errorMessage = err.response?.data?.detail || err.response?.data?.message || err.message || 'Failed to update rule';
+      setError(errorMessage);
+      console.error('Error updating rule:', err);
     }
   };
 
@@ -186,6 +190,7 @@ const RulesEditor = () => {
 };
 
 export default RulesEditor;
+
 
 
 

@@ -24,7 +24,9 @@ const Overview = () => {
       const scored = await apiService.scoreUploadedDataset();
       setScoreData(scored);
     } catch (err: any) {
-      setError(err.message || 'Failed to upload file');
+      const errorMessage = err.response?.data?.detail || err.message || 'Failed to upload file';
+      setError(errorMessage);
+      console.error('Upload error:', err);
     } finally {
       setLoading(false);
     }

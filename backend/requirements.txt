@@ -16,5 +16,6 @@ boto3==1.28.63
 azure-storage-blob==12.19.1
 shap==0.44.0
 lime==0.2.0.1
+pyarrow==14.0.1
 
 

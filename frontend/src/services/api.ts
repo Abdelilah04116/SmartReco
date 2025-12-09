@@ -24,6 +24,12 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     console.error('API Error:', error);
+    // Extract detailed error message from backend
+    if (error.response?.data?.detail) {
+      error.message = error.response.data.detail;
+    } else if (error.response?.data?.message) {
+      error.message = error.response.data.message;
+    }
     return Promise.reject(error);
   }
 );

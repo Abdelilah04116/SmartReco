@@ -1,0 +1,39 @@
+{
+  "dataset_id": "a2b0508600014c2b9628529b1c43dcbf",
+  "source_filename": "bank_sample.csv",
+  "ingestion_timestamp": "2025-12-09T00:05:12.835730",
+  "quality_report": {
+    "timestamp": "2025-12-09T00:05:12.835755",
+    "records_total": 55,
+    "records_valid": 55,
+    "records_invalid": 0,
+    "invalid_indices": [],
+    "anomalies": {}
+  },
+  "columns": [
+    "age",
+    "job",
+    "marital",
+    "education",
+    "default",
+    "balance",
+    "housing",
+    "loan",
+    "contact",
+    "day",
+    "month",
+    "duration",
+    "campaign",
+    "pdays",
+    "previous",
+    "poutcome",
+    "y",
+    "dataset_id",
+    "ingestion_timestamp",
+    "normalized_contact",
+    "is_contact_recent",
+    "balance_to_age_ratio",
+    "age_balance_interaction",
+    "contact_frequency_score"
+  ]
+}

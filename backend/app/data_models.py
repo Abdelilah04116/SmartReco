@@ -46,6 +46,84 @@ class BankMarketingRawRecord(BaseModel):
     poutcome: Outcome
     y: BinaryResponse
 
+    @validator("pdays", pre=True)
+    def convert_pdays_to_int(cls, value):
+        """Convert pdays to int, handling float values from CSV parsing."""
+        if value is None:
+            return -1
+        if isinstance(value, float):
+            # Handle NaN
+            import math
+            if math.isnan(value):
+                return -1
+            return int(round(value))
+        return int(value)
+
+    @validator("previous", pre=True)
+    def convert_previous_to_int(cls, value):
+        """Convert previous to int, handling float values from CSV parsing."""
+        if value is None:
+            return 0
+        if isinstance(value, float):
+            # Handle NaN
+            import math
+            if math.isnan(value):
+                return 0
+            return int(round(value))
+        return int(value)
+
+    @validator("campaign", pre=True)
+    def convert_campaign_to_int(cls, value):
+        """Convert campaign to int, handling float values from CSV parsing."""
+        if value is None:
+            return 1
+        if isinstance(value, float):
+            # Handle NaN
+            import math
+            if math.isnan(value):
+                return 1
+            return int(round(value))
+        return int(value)
+
+    @validator("age", pre=True)
+    def convert_age_to_int(cls, value):
+        """Convert age to int, handling float values from CSV parsing."""
+        if value is None:
+            return 18
+        if isinstance(value, float):
+            # Handle NaN
+            import math
+            if math.isnan(value):
+                return 18
+            return int(round(value))
+        return int(value)
+
+    @validator("day", pre=True)
+    def convert_day_to_int(cls, value):
+        """Convert day to int, handling float values from CSV parsing."""
+        if value is None:
+            return 1
+        if isinstance(value, float):
+            # Handle NaN
+            import math
+            if math.isnan(value):
+                return 1
+            return int(round(value))
+        return int(value)
+
+    @validator("duration", pre=True)
+    def convert_duration_to_int(cls, value):
+        """Convert duration to int, handling float values from CSV parsing."""
+        if value is None:
+            return 0
+        if isinstance(value, float):
+            # Handle NaN
+            import math
+            if math.isnan(value):
+                return 0
+            return int(round(value))
+        return int(value)
+
     @validator("balance")
     def balance_reasonable(cls, value: float) -> float:
         if value < -10000 or value > 1000000:
@@ -81,6 +159,7 @@ class BankMarketingRecord(BankMarketingRawRecord):
         "populate_by_name": True,
         "from_attributes": True,
     }
+
 
 
 
