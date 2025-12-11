@@ -153,3 +153,19 @@ class AIAnalysisResponse(BaseModel):
     ai_enabled: bool = True
 
 
+class DashboardWidget(BaseModel):
+    """Schema for a dashboard widget."""
+    id: str
+    type: str  # 'kpi', 'bar', 'line', 'pie', 'area', 'table'
+    title: str
+    data: Dict[str, Any]
+    config: Optional[Dict[str, Any]] = None
+
+
+class DashboardFragmentResponse(BaseModel):
+    """Response containing AI-generated dashboard fragments."""
+    widgets: List[DashboardWidget]
+    layout: str
+    description: str
+
+

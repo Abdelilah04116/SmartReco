@@ -1,272 +1,133 @@
-import { useState } from 'react';
-import { 
-  BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, 
-  Tooltip, Legend, ResponsiveContainer, LineChart, Line, AreaChart, 
-  Area, ScatterChart, Scatter 
-} from 'recharts';
-import KpiCard from '../components/KpiCard';
-import RulesEditor from '../components/RulesEditor';
-import ChartSelector, { ChartType } from '../components/ChartSelector';
-import AIRecommendations from '../components/AIRecommendations';
-import { apiService, ScoreResponse } from '../services/api';
+import { useEffect, useState } from 'react';
+import { Alert, CircularProgress } from '@mui/material';
 
-const Overview = () => {
+import FileUploader from '../components/FileUploader';
+import DatasetPreview from '../components/DatasetPreview';
+import PlotGallery from '../components/PlotGallery';
+import FeaturesPanel from '../components/FeaturesPanel';
+import RulesPanel from '../components/RulesPanel';
+import Recommendations from '../components/Recommendations';
+import Navbar from '../components/Navbar';
+import apiService, {
+  AnalyzeResponse,
+  FeatureResponse,
+  PlotResponse,
+  RecommendationResponse,
+  RuleResponse,
+  UploadResponse,
+} from '../services/api';
+
+function Overview() {
+  const [fileId, setFileId] = useState<string | null>(null);
+  const [preview, setPreview] = useState<UploadResponse | null>(null);
+  const [analysis, setAnalysis] = useState<AnalyzeResponse | null>(null);
+  const [plots, setPlots] = useState<PlotResponse | null>(null);
+  const [features, setFeatures] = useState<FeatureResponse | null>(null);
+  const [rules, setRules] = useState<RuleResponse | null>(null);
+  const [recs, setRecs] = useState<RecommendationResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [scoreData, setScoreData] = useState<ScoreResponse | null>(null);
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
-  const [selectedCharts, setSelectedCharts] = useState<ChartType[]>(['bar', 'pie']);
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  useEffect(() => {
+    if (!fileId) return;
+    const fetchAll = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const [analysisRes, plotsRes, featureRes, rulesRes, recsRes] = await Promise.all([
+          apiService.analyzeDataset(fileId),
+          apiService.getPlots(fileId),
+          apiService.getFeatures(fileId),
+          apiService.getRules(fileId),
+          apiService.getRecommendations(fileId),
+        ]);
+        setAnalysis(analysisRes);
+        setPlots(plotsRes);
+        setFeatures(featureRes);
+        setRules(rulesRes);
+        setRecs(recsRes);
+      } catch (err: any) {
+        setError(err.message || 'An error occurred while processing the dataset.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAll();
+  }, [fileId]);
 
+  const handleUpload = async (file: File) => {
     try {
       setLoading(true);
-      setError(null);
-      await apiService.uploadDataset(file);
-      setUploadStatus(`File "${file.name}" uploaded successfully`);
-      
-      // Auto-score after upload
-      const scored = await apiService.scoreUploadedDataset();
-      setScoreData(scored);
+      const response = await apiService.uploadDataset(file);
+      setPreview(response);
+      setFileId(response.file_id);
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || err.message || 'Failed to upload file';
-      setError(errorMessage);
-      console.error('Upload error:', err);
+      setError(err.message || 'Upload failed');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleRunSampleScoring = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const scored = await apiService.scoreUploadedDataset();
-      setScoreData(scored);
-    } catch (err: any) {
-      setError('No dataset uploaded. Please upload a CSV file first.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const COLORS = ['#10b981', '#f59e0b', '#ef4444'];
-
-  const renderChart = (chartType: ChartType) => {
-    if (!scoreData) return null;
-
-    const commonData = [
-      { priority: 'High', count: scoreData.summary.high, value: scoreData.summary.high },
-      { priority: 'Medium', count: scoreData.summary.medium, value: scoreData.summary.medium },
-      { priority: 'Low', count: scoreData.summary.low, value: scoreData.summary.low },
-    ];
-
-    const pieData = [
-      { name: 'High', value: scoreData.summary.high, color: '#10b981' },
-      { name: 'Medium', value: scoreData.summary.medium, color: '#f59e0b' },
-      { name: 'Low', value: scoreData.summary.low, color: '#ef4444' },
-    ];
-
-    switch (chartType) {
-      case 'bar':
-        return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4">Priority Distribution (Bar)</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={commonData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="priority" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="count" fill="#0ea5e9" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        );
-      
-      case 'pie':
-        return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4">Priority Distribution (Pie)</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {pieData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        );
-      
-      case 'line':
-        return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4">Priority Distribution (Line)</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={commonData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="priority" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="count" stroke="#0ea5e9" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        );
-      
-      case 'area':
-        return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4">Priority Distribution (Area)</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={commonData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="priority" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Area type="monotone" dataKey="count" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.6} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        );
-      
-      case 'scatter':
-        return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4">Priority Distribution (Scatter)</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <ScatterChart data={commonData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="priority" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Scatter dataKey="count" fill="#0ea5e9" />
-              </ScatterChart>
-            </ResponsiveContainer>
-          </div>
-        );
-      
-      default:
-        return null;
     }
   };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Overview</h1>
-        <p className="text-gray-600">Upload and score customer data using business rules - Supports any CSV structure</p>
-      </div>
-
-      {/* Upload Section */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-bold mb-4">Upload Dataset</h2>
-        <div className="flex items-center space-x-4">
-          <label className="cursor-pointer">
-            <span className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 inline-block">
-              Choose CSV File
-            </span>
-            <input
-              type="file"
-              accept=".csv"
-              onChange={handleFileUpload}
-              className="hidden"
-              disabled={loading}
-            />
-          </label>
-          <button
-            onClick={handleRunSampleScoring}
-            disabled={loading}
-            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50"
-          >
-            {loading ? 'Processing...' : 'Run Scoring'}
-          </button>
+    <div className="min-h-screen bg-slate-50">
+      <Navbar />
+      <header className="bg-white shadow-sm">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900">SmartReco</h1>
+            <p className="text-sm text-slate-500">Agentic business recommendation system</p>
+          </div>
+          {loading && <CircularProgress size={24} />}
         </div>
-        {uploadStatus && (
-          <div className="mt-4 text-sm text-green-600">{uploadStatus}</div>
-        )}
-        {error && (
-          <div className="mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-            {error}
-          </div>
-        )}
-      </div>
+      </header>
 
-      {/* KPI Cards */}
-      {scoreData && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <KpiCard
-              title="Total Customers"
-              value={scoreData.total_scored}
-              subtitle="Scored customers"
-            />
-            <KpiCard
-              title="High Priority"
-              value={scoreData.summary.high}
-              subtitle={`${((scoreData.summary.high / scoreData.total_scored) * 100).toFixed(1)}% of total`}
-            />
-            <KpiCard
-              title="Medium Priority"
-              value={scoreData.summary.medium}
-              subtitle={`${((scoreData.summary.medium / scoreData.total_scored) * 100).toFixed(1)}% of total`}
-            />
-            <KpiCard
-              title="Low Priority"
-              value={scoreData.summary.low}
-              subtitle={`${((scoreData.summary.low / scoreData.total_scored) * 100).toFixed(1)}% of total`}
-            />
-          </div>
+      <main className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+        {error && <Alert severity="error">{error}</Alert>}
 
-              {/* AI Recommendations */}
-          <AIRecommendations 
-            onChartsSelected={(chartTypes) => {
-              setSelectedCharts(chartTypes as ChartType[]);
-            }}
+        <FileUploader onUpload={handleUpload} />
+
+        {preview && (
+          <DatasetPreview
+            filename={preview.original_filename}
+            rows={preview.rows}
+            dtypes={preview.dtypes}
+            columns={preview.columns}
           />
+        )}
 
-          {/* Chart Selector */}
-          <ChartSelector 
-            selectedCharts={selectedCharts} 
-            onChartsChange={setSelectedCharts}
-          />
-
-          {/* Charts - Dynamic rendering based on selection */}
-          {selectedCharts.length > 0 && (
-            <div className={`grid grid-cols-1 ${selectedCharts.length === 1 ? 'md:grid-cols-1' : selectedCharts.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-3'} gap-6`}>
-              {selectedCharts.map((chartType) => (
-                <div key={chartType}>
-                  {renderChart(chartType)}
-                </div>
-              ))}
+        {analysis && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <h2 className="text-lg font-semibold text-slate-800 mb-2">Dataset Overview</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-slate-700">
+              <div className="p-3 border rounded-lg">
+                <p className="font-semibold">Shape</p>
+                <p>
+                  {analysis.dataset_overview.row_count} rows / {analysis.dataset_overview.column_count} columns
+                </p>
+              </div>
+              <div className="p-3 border rounded-lg">
+                <p className="font-semibold">Numeric columns</p>
+                <p>{analysis.dataset_overview.numeric_columns.join(', ') || 'None detected'}</p>
+              </div>
+              <div className="p-3 border rounded-lg">
+                <p className="font-semibold">Categorical columns</p>
+                <p>{analysis.dataset_overview.categorical_columns.join(', ') || 'None detected'}</p>
+              </div>
             </div>
-          )}
-        </>
-      )}
+          </div>
+        )}
 
-      {/* Rules Editor */}
-      <RulesEditor />
+        {plots && <PlotGallery plots={plots.plots} />}
+
+        {features && <FeaturesPanel suggestions={features.suggestions} />}
+
+        {rules && <RulesPanel rules={rules.rules} />}
+
+        {recs && <Recommendations insights={recs.insights} actions={recs.actions} rules={recs.business_rules} />}
+      </main>
     </div>
   );
-};
+}
 
 export default Overview;
 

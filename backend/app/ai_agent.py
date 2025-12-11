@@ -160,7 +160,7 @@ Please provide recommendations in this JSON format:
     "feature_engineering": {{
         "suggested_interactions": ["col1*col2", "col3/col4"],
         "suggested_transformations": ["log(col)", "sqrt(col)"],
-        "categorical_encoding": "one-hot/target/label"
+        "categorical_encoding": "label/target (one-hot removed)"
     }},
     "insights": [
         "insight 1",

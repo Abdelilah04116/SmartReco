@@ -10,7 +10,7 @@ from loguru import logger
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import OrdinalEncoder, StandardScaler
 
 from .config import settings
 from .schema_detection import schema_detector
@@ -106,7 +106,7 @@ class FeatureEngineer:
         categorical_transformer = Pipeline(
             steps=[
                 ("imputer", SimpleImputer(strategy="most_frequent")),
-                ("encoder", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
+                ("encoder", OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)),
             ]
         )
         numeric_transformer = Pipeline(
@@ -189,12 +189,8 @@ class FeatureEngineer:
         try:
             feature_names = []
             if self.categorical_columns_:
-                cat_features = list(
-                    self.pipeline.named_transformers_["categorical"]
-                    .named_steps["encoder"]
-                    .get_feature_names_out(self.categorical_columns_)
-                )
-                feature_names.extend(cat_features)
+                # OrdinalEncoder returns one feature per input column
+                feature_names.extend(self.categorical_columns_)
             if self.numeric_columns_:
                 feature_names.extend(self.numeric_columns_)
             return feature_names

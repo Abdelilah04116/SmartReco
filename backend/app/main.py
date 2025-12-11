@@ -12,7 +12,8 @@ from .schemas import (
     CampaignSimulationRequest, CampaignSimulationResponse,
     DatasetMetadataResponse, ModelTrainingRequest, ModelTrainingResponse,
     ModelPredictionRequest, ModelPredictionResponse, MonitoringMetricsResponse,
-    ColumnStatisticsResponse, AIAnalysisResponse
+    ColumnStatisticsResponse, AIAnalysisResponse,
+    DashboardFragmentResponse, DashboardWidget
 )
 from .scoring_rules import rule_engine
 from .recommender import recommender
@@ -105,7 +106,7 @@ async def health():
     return {
         "status": "healthy",
         "rules_loaded": len(rule_engine.get_rules()),
-        "dataset_available": latest_dataset_id is not None,
+        "dataset_loaded": latest_dataset_id is not None,
         "scored_count": len(scored_customers_cache)
     }
 
@@ -645,6 +646,200 @@ async def simulate_campaign(request: CampaignSimulationRequest):
     except Exception as e:
         logger.error(f"Error simulating campaign: {e}")
         raise HTTPException(status_code=500, detail=f"Error simulating campaign: {str(e)}")
+
+
+@app.post("/dashboard/generate-fragment", response_model=DashboardFragmentResponse)
+async def generate_dashboard_fragment():
+    """
+    Generate a dashboard fragment using AI analysis of available data.
+    
+    Returns:
+        DashboardFragmentResponse with AI-generated widgets
+    """
+    global scored_customers_cache, latest_dataset_id
+    
+    try:
+        widgets = []
+        
+        # Si on a des clients scorés, générer des widgets basés sur eux
+        if scored_customers_cache:
+            # Widget KPI: Total clients scorés
+            widgets.append(DashboardWidget(
+                id="widget_kpi_total",
+                type="kpi",
+                title="Total Clients Scorés",
+                data={
+                    "value": len(scored_customers_cache),
+                    "trend": "neutral"
+                },
+                config={"subtitle": "Clients analysés", "unit": "clients"}
+            ))
+            
+            # Widget KPI: Score moyen
+            avg_score = sum(c.priority_score for c in scored_customers_cache) / len(scored_customers_cache) if scored_customers_cache else 0
+            widgets.append(DashboardWidget(
+                id="widget_kpi_avg_score",
+                type="kpi",
+                title="Score Moyen",
+                data={
+                    "value": round(avg_score, 2),
+                    "trend": "up" if avg_score > 30 else "neutral"
+                },
+                config={"subtitle": "Score de priorité moyen", "unit": "points"}
+            ))
+            
+            # Widget Bar: Distribution par priorité
+            priority_counts = {}
+            for customer in scored_customers_cache:
+                label = customer.priority_label
+                priority_counts[label] = priority_counts.get(label, 0) + 1
+            
+            widgets.append(DashboardWidget(
+                id="widget_bar_priority",
+                type="bar",
+                title="Distribution par Priorité",
+                data=[
+                    {"name": "Haute", "value": priority_counts.get("high", 0)},
+                    {"name": "Moyenne", "value": priority_counts.get("medium", 0)},
+                    {"name": "Basse", "value": priority_counts.get("low", 0)}
+                ]
+            ))
+            
+            # Widget Pie: Répartition des règles déclenchées
+            rule_counts = {}
+            for customer in scored_customers_cache[:100]:  # Limiter pour performance
+                for rule in customer.rules_fired:
+                    rule_counts[rule.rule_label] = rule_counts.get(rule.rule_label, 0) + 1
+            
+            top_rules = sorted(rule_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+            widgets.append(DashboardWidget(
+                id="widget_pie_rules",
+                type="pie",
+                title="Top 5 Règles Déclenchées",
+                data=[{"name": name, "value": count} for name, count in top_rules]
+            ))
+            
+            # Widget Line: Distribution des scores
+            score_ranges = {"0-25": 0, "26-50": 0, "51-75": 0, "76-100": 0}
+            for customer in scored_customers_cache:
+                score = customer.priority_score
+                if score <= 25:
+                    score_ranges["0-25"] += 1
+                elif score <= 50:
+                    score_ranges["26-50"] += 1
+                elif score <= 75:
+                    score_ranges["51-75"] += 1
+                else:
+                    score_ranges["76-100"] += 1
+            
+            widgets.append(DashboardWidget(
+                id="widget_line_scores",
+                type="line",
+                title="Distribution des Scores",
+                data=[
+                    {"name": "0-25", "value": score_ranges["0-25"]},
+                    {"name": "26-50", "value": score_ranges["26-50"]},
+                    {"name": "51-75", "value": score_ranges["51-75"]},
+                    {"name": "76-100", "value": score_ranges["76-100"]}
+                ]
+            ))
+        
+        # Si on a un dataset mais pas de clients scorés, générer des widgets basés sur le dataset
+        elif latest_dataset_id:
+            try:
+                # Essayer de charger le dataset via storage_manager si disponible
+                try:
+                    dataset = storage_manager.load_dataframe(
+                        latest_dataset_id,
+                        subdir=getattr(settings, 'NORMALIZED_DATA_SUBDIR', 'normalized'),
+                    )
+                except (AttributeError, NameError):
+                    # Si storage_manager n'est pas disponible, utiliser les métadonnées
+                    if latest_dataset_metadata:
+                        widgets.append(DashboardWidget(
+                            id="widget_kpi_rows",
+                            type="kpi",
+                            title="Nombre de Lignes",
+                            data={
+                                "value": latest_dataset_metadata.get("records_total", 0),
+                                "trend": "neutral"
+                            },
+                            config={"subtitle": "Lignes dans le dataset", "unit": "lignes"}
+                        ))
+                        widgets.append(DashboardWidget(
+                            id="widget_kpi_cols",
+                            type="kpi",
+                            title="Nombre de Colonnes",
+                            data={
+                                "value": len(latest_dataset_metadata.get("columns", [])),
+                                "trend": "neutral"
+                            },
+                            config={"subtitle": "Colonnes dans le dataset", "unit": "colonnes"}
+                        ))
+                    raise StopIteration  # Sortir de la boucle try
+                
+                # Widget KPI: Nombre de lignes
+                widgets.append(DashboardWidget(
+                    id="widget_kpi_rows",
+                    type="kpi",
+                    title="Nombre de Lignes",
+                    data={
+                        "value": len(dataset),
+                        "trend": "neutral"
+                    },
+                    config={"subtitle": "Lignes dans le dataset", "unit": "lignes"}
+                ))
+                
+                # Widget KPI: Nombre de colonnes
+                widgets.append(DashboardWidget(
+                    id="widget_kpi_cols",
+                    type="kpi",
+                    title="Nombre de Colonnes",
+                    data={
+                        "value": len(dataset.columns),
+                        "trend": "neutral"
+                    },
+                    config={"subtitle": "Colonnes dans le dataset", "unit": "colonnes"}
+                ))
+                
+                # Widget Table: Aperçu des données
+                sample_data = dataset.head(10).to_dict('records')
+                widgets.append(DashboardWidget(
+                    id="widget_table_preview",
+                    type="table",
+                    title="Aperçu des Données",
+                    data=sample_data,
+                    config={"columns": list(dataset.columns[:5])}  # Limiter à 5 colonnes
+                ))
+                
+            except StopIteration:
+                pass  # Déjà géré avec les métadonnées
+            except Exception as e:
+                logger.error(f"Error loading dataset for dashboard: {e}")
+        
+        # Si aucun widget n'a été généré
+        if not widgets:
+            # Widget par défaut
+            widgets.append(DashboardWidget(
+                id="widget_default",
+                type="kpi",
+                title="Aucune Donnée",
+                data={
+                    "value": 0,
+                    "trend": "neutral"
+                },
+                config={"subtitle": "Veuillez uploader un dataset", "unit": ""}
+            ))
+        
+        return DashboardFragmentResponse(
+            widgets=widgets,
+            layout="grid",
+            description=f"Fragment de dashboard généré avec {len(widgets)} widgets basés sur les données disponibles"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error generating dashboard fragment: {e}")
+        raise HTTPException(status_code=500, detail=f"Error generating dashboard fragment: {str(e)}")
 
 
 if __name__ == "__main__":

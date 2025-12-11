@@ -36,6 +36,16 @@ const Navbar = () => {
               >
                 Recommendations
               </Link>
+              <Link
+                to="/dashboard"
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive('/dashboard')
+                    ? 'bg-primary-100 text-primary-700'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                Dashboard
+              </Link>
             </div>
           </div>
         </div>

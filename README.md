@@ -2,7 +2,7 @@
 
 SmartReco est une application web complète pour la recommandation de clients basée sur des règles métier. Le système charge un dataset (Bank Marketing), calcule des scores de priorité en utilisant uniquement des règles métier (sans machine learning), et fournit une interface utilisateur complète pour visualiser, ajuster et expliquer les règles.
 
-## 🎯 Fonctionnalités
+##  Fonctionnalités
 
 - **Scoring basé sur des règles métier** : Aucun modèle ML, tout est rule-based
 - **Interface web moderne** : React + TypeScript avec TailwindCSS
@@ -12,7 +12,7 @@ SmartReco est une application web complète pour la recommandation de clients ba
 - **Simulation de campagnes** : Estimation de KPIs basée sur les règles
 - **Explicabilité** : Détail complet des règles déclenchées pour chaque client
 
-## 🏗️ Architecture
+##  Architecture
 
 ```
 smart-reco/
@@ -35,7 +35,7 @@ smart-reco/
 └── docker-compose.yml
 ```
 
-## 🚀 Démarrage rapide
+##  Démarrage rapide
 
 ### Prérequis
 
@@ -92,7 +92,7 @@ npm install
 npm run dev
 ```
 
-## 📊 Utilisation
+##  Utilisation
 
 ### 1. Uploader un dataset
 
@@ -119,7 +119,7 @@ npm run dev
 - Modifier les points, le threshold, ou activer/désactiver
 - Sauvegarder (nécessite une clé API - voir configuration)
 
-## 🔧 Configuration
+##  Configuration
 
 ### Variables d'environnement
 
@@ -154,7 +154,7 @@ rules:
 - Collections: `in`, `not in`
 - Regex: (via expressions)
 
-## 📡 API Endpoints
+##  API Endpoints
 
 ### Health & Status
 - `GET /` - Health check
@@ -196,7 +196,7 @@ curl -X POST http://localhost:8000/score \
 curl http://localhost:8000/recommendations?top_n=10
 ```
 
-## 🧪 Tests
+##  Tests
 
 ```bash
 # Backend tests
@@ -207,7 +207,7 @@ pytest app/tests/ -v
 docker-compose exec backend pytest app/tests/ -v
 ```
 
-## 📁 Structure des fichiers
+##  Structure des fichiers
 
 ### Backend
 
@@ -226,14 +226,14 @@ docker-compose exec backend pytest app/tests/ -v
 - `src/components/RulesEditor.tsx` - Éditeur de règles
 - `src/services/api.ts` - Client API
 
-## 🔒 Sécurité
+##  Sécurité
 
 - Les endpoints de modification de règles sont protégés par une clé API (`X-API-KEY` header)
 - L'évaluation des règles utilise un parser AST sécurisé (pas d'`eval()` direct)
 - CORS configuré pour les origines autorisées
 - Limite de taille d'upload: 50MB
 
-## 🐳 Docker
+##  Docker
 
 ### Services
 
@@ -255,7 +255,7 @@ docker-compose restart backend
 docker-compose up --build
 ```
 
-## 📈 Règles métier par défaut
+##  Règles métier par défaut
 
 Le système inclut 10 règles pré-configurées:
 
@@ -290,13 +290,13 @@ Les modifications dans `frontend/src` sont prises en compte après rebuild:
 docker-compose up --build frontend
 ```
 
-## 📝 Notes
+##  Notes
 
 - Le dataset est stocké en mémoire (pour la démo). En production, utiliser une base de données.
 - Les règles sont évaluées de manière séquentielle et additive (somme des points).
 - L'explicabilité est garantie: chaque score inclut la liste des règles déclenchées.
 
-## 🤝 Contribution
+##  Contribution
 
 1. Fork le projet
 2. Créer une branche (`git checkout -b feature/AmazingFeature`)
@@ -304,11 +304,11 @@ docker-compose up --build frontend
 4. Push vers la branche (`git push origin feature/AmazingFeature`)
 5. Ouvrir une Pull Request
 
-## 📄 Licence
+##  Licence
 
 Ce projet est fourni à des fins éducatives et de démonstration.
 
-## 🆘 Support
+##  Support
 
 Pour toute question ou problème:
 1. Vérifier les logs: `docker-compose logs`

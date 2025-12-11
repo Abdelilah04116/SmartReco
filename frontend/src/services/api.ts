@@ -1,212 +1,149 @@
-/** API service for communicating with the backend. */
+/** Minimal API client for SmartReco backend. */
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Request interceptor for API key (if needed)
-api.interceptors.request.use((config) => {
-  const apiKey = import.meta.env.VITE_API_KEY;
-  if (apiKey) {
-    config.headers['X-API-KEY'] = apiKey;
-  }
-  return config;
-});
-
-// Response interceptor for error handling
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    console.error('API Error:', error);
-    // Extract detailed error message from backend
-    if (error.response?.data?.detail) {
-      error.message = error.response.data.detail;
-    } else if (error.response?.data?.message) {
-      error.message = error.response.data.message;
-    }
-    return Promise.reject(error);
-  }
-);
-
-export interface CustomerScore {
-  customer_id: string;
-  priority_score: number;
-  priority_label: 'high' | 'medium' | 'low';
-  rules_fired: RuleFired[];
-  explain: Record<string, any>;
-  raw_data: Record<string, any>;
+export interface ColumnSummary {
+  name: string;
+  dtype: string;
+  non_nulls: number;
+  unique: number;
+  sample_values: any[];
 }
 
-export interface RuleFired {
-  rule_id: string;
-  rule_label: string;
-  points: number;
-  reason: string;
+export interface UploadResponse {
+  file_id: string;
+  original_filename: string;
+  rows: Record<string, any>[];
+  dtypes: Record<string, string>;
+  columns: ColumnSummary[];
 }
 
-export interface RuleConfig {
-  id: string;
-  label: string;
-  condition: string;
-  points: number;
+export interface AnalyzeResponse {
+  file_id: string;
+  column_types: Record<string, string>;
+  descriptive_stats: Record<string, any>;
+  correlation_insights: Array<{ pair: string[]; correlation: number; strength: string }>;
+  suggested_plots: Array<{ title: string; plot_type: string; columns: string[] }>;
+  dataset_overview: Record<string, any>;
+}
+
+export interface PlotResult {
+  title: string;
+  plot_type: string;
+  image_base64: string;
+  description?: string;
+}
+
+export interface PlotResponse {
+  file_id: string;
+  plots: PlotResult[];
+}
+
+export interface FeatureSuggestion {
+  name: string;
   description: string;
-  enabled: boolean;
-  threshold?: number;
+  columns: string[];
+  preview?: Record<string, any>;
 }
 
-export interface ScoreResponse {
-  results: CustomerScore[];
-  total_scored: number;
-  summary: {
-    high: number;
-    medium: number;
-    low: number;
-    total: number;
-  };
+export interface FeatureResponse {
+  file_id: string;
+  suggestions: FeatureSuggestion[];
+}
+
+export interface RuleCandidate {
+  rule: string;
+  rationale: string;
+  severity: string;
+}
+
+export interface RuleResponse {
+  file_id: string;
+  rules: RuleCandidate[];
+}
+
+export interface RecommendationItem {
+  title: string;
+  description: string;
+  priority: string;
 }
 
 export interface RecommendationResponse {
-  customers: CustomerScore[];
-  total_count: number;
-  metadata: {
-    high_count: number;
-    medium_count: number;
-    low_count: number;
-    avg_score: number;
-  };
+  file_id: string;
+  insights: string;
+  business_rules: RuleCandidate[];
+  actions: RecommendationItem[];
 }
 
-export interface CustomerDetailResponse {
-  customer: CustomerScore;
-  suggested_action: string;
+const api = axios.create({
+  baseURL: API_BASE_URL,
+});
+
+const asJson = async <T>(promise: Promise<any>): Promise<T> => {
+  const res = await promise;
+  return res.data as T;
+};
+
+export interface DashboardWidget {
+  id: string;
+  type: 'kpi' | 'bar' | 'line' | 'pie' | 'area' | 'table';
+  title: string;
+  data: any;
+  config?: any;
 }
 
-export interface CampaignSimulationResponse {
-  estimated_conversion_rate: number;
-  estimated_revenue: number;
-  total_customers: number;
-  high_priority_count: number;
-  medium_priority_count: number;
-  low_priority_count: number;
-  kpis: Record<string, any>;
+export interface DashboardFragment {
+  widgets: DashboardWidget[];
+  layout: string;
+  description: string;
 }
 
-export interface ColumnStatisticsResponse {
-  columns: string[];
-  numeric_columns: string[];
-  categorical_columns: string[];
-  datetime_columns: string[];
-  column_stats: Record<string, any>;
-  available_charts: string[];
+export interface HealthCheckResponse {
+  status: string;
+  dataset_loaded: boolean;
+  rules_loaded: number;
+  scored_count: number;
 }
 
-export interface AIAnalysisResponse {
-  analysis: Record<string, any>;
-  recommendations: Record<string, any>;
-  transformation_plan: Record<string, any>;
-  suggested_charts: Array<{
-    type: string;
-    reason: string;
-    columns: string[];
-    priority: string;
-  }>;
-  feature_engineering_suggestions: Array<{
-    type: string;
-    formula: string;
-    reason: string;
-  }>;
-  ai_enabled: boolean;
-}
-
-// API functions
 export const apiService = {
-  // Health check
-  healthCheck: async () => {
-    const response = await api.get('/');
-    return response.data;
-  },
-
-  // Upload dataset
   uploadDataset: async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    const response = await api.post('/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response.data;
+    try {
+      return asJson<UploadResponse>(
+        api.post('/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+      );
+    } catch (err: any) {
+      if (err.response && err.response.data?.detail) {
+        // Erreur renvoyée par l'API backend
+        throw new Error('Erreur API : ' + err.response.data.detail);
+      } else if (err.response && err.response.data) {
+        // Erreur structurée renvoyée mais sans champ .detail
+        throw new Error('Erreur API : ' + JSON.stringify(err.response.data));
+      } else if (err.request) {
+        // Pas de réponse du tout (timeout, backend down)
+        throw new Error("Erreur réseau : le backend n'a pas répondu.");
+      } else {
+        // Erreur technique JS/axios
+        throw new Error('Erreur technique : ' + err.message);
+      }
+    }
   },
-
-  // Score customers
-  scoreCustomers: async (data: Record<string, any>[]) => {
-    const response = await api.post<ScoreResponse>('/score', { data });
-    return response.data;
-  },
-
-  // Score uploaded dataset
-  scoreUploadedDataset: async () => {
-    const response = await api.post<ScoreResponse>('/score/upload');
-    return response.data;
-  },
-
-  // Get recommendations
-  getRecommendations: async (topN: number = 50, priorityLabel?: string, minScore?: number) => {
-    const params: Record<string, any> = { top_n: topN };
-    if (priorityLabel) params.priority_label = priorityLabel;
-    if (minScore !== undefined) params.min_score = minScore;
-    
-    const response = await api.get<RecommendationResponse>('/recommendations', { params });
-    return response.data;
-  },
-
-  // Get customer detail
-  getCustomerDetail: async (customerId: string) => {
-    const response = await api.get<CustomerDetailResponse>(`/customer/${customerId}`);
-    return response.data;
-  },
-
-  // Get rules
-  getRules: async () => {
-    const response = await api.get<{ rules: RuleConfig[] }>('/rules');
-    return response.data;
-  },
-
-  // Update rule
-  updateRule: async (ruleId: string, updates: { enabled?: boolean; threshold?: number; points?: number }) => {
-    const response = await api.put(`/rules/${ruleId}`, updates, {
-      headers: {
-        'X-API-KEY': import.meta.env.VITE_API_KEY || 'demo-api-key-change-in-production',
-      },
-    });
-    return response.data;
-  },
-
-  // Simulate campaign
-  simulateCampaign: async (topN: number = 50) => {
-    const response = await api.post<CampaignSimulationResponse>('/simulate_campaign', { top_n: topN });
-    return response.data;
-  },
-
-  // Get dataset statistics
-  getDatasetStatistics: async () => {
-    const response = await api.get<ColumnStatisticsResponse>('/datasets/latest/statistics');
-    return response.data;
-  },
-
-  // Get AI analysis and recommendations
-  getAIAnalysis: async () => {
-    const response = await api.get<AIAnalysisResponse>('/datasets/latest/ai-analysis');
-    return response.data;
-  },
+  getDatasetPreview: async (fileId: string) =>
+    asJson<UploadResponse>(api.get('/dataset', { params: { file_id: fileId } })),
+  analyzeDataset: async (fileId: string) =>
+    asJson<AnalyzeResponse>(api.post('/analyze', { file_id: fileId })),
+  getPlots: async (fileId: string) => asJson<PlotResponse>(api.post('/plots', { file_id: fileId })),
+  getFeatures: async (fileId: string) => asJson<FeatureResponse>(api.post('/features', { file_id: fileId })),
+  getRules: async (fileId: string) => asJson<RuleResponse>(api.post('/rules', { file_id: fileId })),
+  getRecommendations: async (fileId: string) =>
+    asJson<RecommendationResponse>(api.post('/recommendations', { file_id: fileId })),
+  healthCheck: async () => asJson<HealthCheckResponse>(api.get('/health')),
+  generateDashboardFragment: async () => 
+    asJson<DashboardFragment>(api.post('/dashboard/generate-fragment')),
 };
 
-export default api;
+export default apiService;
 
 
