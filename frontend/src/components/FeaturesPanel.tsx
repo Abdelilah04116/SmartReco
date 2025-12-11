@@ -30,3 +30,5 @@ const FeaturesPanel = ({ suggestions }: Props) => {
 export default FeaturesPanel;
 
 
+
+

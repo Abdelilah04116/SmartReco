@@ -8,6 +8,11 @@ import FeaturesPanel from '../components/FeaturesPanel';
 import RulesPanel from '../components/RulesPanel';
 import Recommendations from '../components/Recommendations';
 import Navbar from '../components/Navbar';
+import DatasetSelector from '../components/DatasetSelector';
+import SystemHealthBar from '../components/SystemHealthBar';
+import ExportButtons from '../components/ExportButtons';
+import ShareButton from '../components/ShareButton';
+import FreshnessTag from '../components/FreshnessTag';
 import apiService, {
   AnalyzeResponse,
   FeatureResponse,
@@ -16,6 +21,8 @@ import apiService, {
   RuleResponse,
   UploadResponse,
 } from '../services/api';
+
+const LAST_FILE_KEY = 'smartreco:lastFileId';
 
 function Overview() {
   const [fileId, setFileId] = useState<string | null>(null);
@@ -27,6 +34,13 @@ function Overview() {
   const [recs, setRecs] = useState<RecommendationResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(LAST_FILE_KEY);
+    if (stored) {
+      setFileId(stored);
+    }
+  }, []);
 
   useEffect(() => {
     if (!fileId) return;
@@ -55,12 +69,26 @@ function Overview() {
     fetchAll();
   }, [fileId]);
 
+  useEffect(() => {
+    const fetchPreview = async () => {
+      if (!fileId || preview) return;
+      try {
+        const res = await apiService.getDatasetPreview(fileId);
+        setPreview(res);
+      } catch (err: any) {
+        setError(err.message || 'Unable to load dataset preview');
+      }
+    };
+    fetchPreview();
+  }, [fileId, preview]);
+
   const handleUpload = async (file: File) => {
     try {
       setLoading(true);
       const response = await apiService.uploadDataset(file);
       setPreview(response);
       setFileId(response.file_id);
+      localStorage.setItem(LAST_FILE_KEY, response.file_id);
     } catch (err: any) {
       setError(err.message || 'Upload failed');
     } finally {
@@ -77,6 +105,7 @@ function Overview() {
             <h1 className="text-2xl font-semibold text-slate-900">SmartReco</h1>
             <p className="text-sm text-slate-500">Agentic business recommendation system</p>
           </div>
+          <SystemHealthBar />
           {loading && <CircularProgress size={24} />}
         </div>
       </header>
@@ -84,15 +113,35 @@ function Overview() {
       <main className="max-w-6xl mx-auto px-6 py-8 space-y-6">
         {error && <Alert severity="error">{error}</Alert>}
 
-        <FileUploader onUpload={handleUpload} />
+        <div className="flex flex-col gap-4">
+          <div className="flex justify-between items-center">
+            <div className="flex-1">
+              <DatasetSelector onSelect={setFileId} current={fileId} />
+            </div>
+            <div className="flex items-center gap-2">
+              {preview && (
+                <>
+                  <ExportButtons fileId={fileId} tableType="rules" disabled={!fileId || !rules} />
+                  <ShareButton fileId={fileId} disabled={!fileId} />
+                </>
+              )}
+            </div>
+          </div>
+          <FileUploader onUpload={handleUpload} />
+        </div>
 
         {preview && (
-          <DatasetPreview
-            filename={preview.original_filename}
-            rows={preview.rows}
-            dtypes={preview.dtypes}
-            columns={preview.columns}
-          />
+          <div>
+            <div className="mb-2 flex items-center gap-2">
+              <DatasetPreview
+                filename={preview.original_filename}
+                rows={preview.rows}
+                dtypes={preview.dtypes}
+                columns={preview.columns}
+              />
+              {preview.created_at && <FreshnessTag createdAt={preview.created_at} />}
+            </div>
+          </div>
         )}
 
         {analysis && (

@@ -13,6 +13,8 @@ from models.schemas import (
     RuleResponse,
 )
 from services import feature_engineering, plotting, rule_extraction
+from utils import cache
+import numpy as np
 
 
 class SmartRecoAgent:
@@ -66,9 +68,37 @@ class SmartRecoAgent:
         insights.sort(key=lambda x: abs(x["correlation"]), reverse=True)
         return insights[:10]
 
+    def _quality_issues(self) -> List[Dict[str, Any]]:
+        issues: List[Dict[str, Any]] = []
+        # missing values
+        for col in self.df.columns:
+            missing = int(self.df[col].isna().sum())
+            if missing > 0:
+                issues.append({"type": "missing_values", "column": col, "count": missing, "severity": "medium"})
+        # constant columns
+        for col in self.df.columns:
+            if self.df[col].nunique(dropna=True) <= 1:
+                issues.append({"type": "constant_column", "column": col, "severity": "high"})
+        # duplicated rows
+        dup_count = int(self.df.duplicated().sum())
+        if dup_count > 0:
+            issues.append({"type": "duplicated_rows", "count": dup_count, "severity": "medium"})
+        # outliers using z-score
+        numeric_cols = [c for c, t in self.column_types.items() if t == "numeric"]
+        for col in numeric_cols:
+            series = self.df[col].dropna()
+            if series.empty:
+                continue
+            zscores = np.abs((series - series.mean()) / (series.std() or 1))
+            outliers = int((zscores > 3).sum())
+            if outliers > 0:
+                issues.append({"type": "outliers", "column": col, "count": outliers, "severity": "medium"})
+        return issues
+
     def analyze(self) -> AnalyzeResponse:
         plots = plotting.propose_plots(self.df, self.column_types)
-        return AnalyzeResponse(
+        quality = self._quality_issues()
+        result = AnalyzeResponse(
             file_id=self.file_id,
             column_types=self.column_types,
             descriptive_stats=self._descriptive_stats(),
@@ -81,19 +111,34 @@ class SmartRecoAgent:
                 "categorical_columns": [c for c, t in self.column_types.items() if t == "categorical"],
                 "datetime_columns": [c for c, t in self.column_types.items() if t == "datetime"],
             },
+            quality_issues=quality,
         )
+        cache.set_cache(self.file_id, {"analysis": result.model_dump()})
+        return result
 
     def generate_plots(self, requested_plots: List[Dict[str, Any]]) -> PlotResponse:
         rendered = plotting.generate_plots(self.df, requested_plots)
-        return PlotResponse(file_id=self.file_id, plots=rendered)
+        response = PlotResponse(file_id=self.file_id, plots=rendered)
+        cache_entry = cache.get_cache(self.file_id) or {}
+        cache_entry["plots"] = response.model_dump()
+        cache.set_cache(self.file_id, cache_entry)
+        return response
 
     def suggest_features(self) -> FeatureResponse:
         suggestions = feature_engineering.suggest_features(self.df, self.column_types)
-        return FeatureResponse(file_id=self.file_id, suggestions=suggestions)
+        response = FeatureResponse(file_id=self.file_id, suggestions=suggestions)
+        cache_entry = cache.get_cache(self.file_id) or {}
+        cache_entry["features"] = response.model_dump()
+        cache.set_cache(self.file_id, cache_entry)
+        return response
 
     def extract_rules(self) -> RuleResponse:
         rules = rule_extraction.extract_rules(self.df, self.column_types)
-        return RuleResponse(file_id=self.file_id, rules=rules)
+        response = RuleResponse(file_id=self.file_id, rules=rules)
+        cache_entry = cache.get_cache(self.file_id) or {}
+        cache_entry["rules"] = response.model_dump()
+        cache.set_cache(self.file_id, cache_entry)
+        return response
 
     def recommend(self) -> RecommendationResponse:
         rules = self.extract_rules().rules
@@ -113,7 +158,7 @@ class SmartRecoAgent:
             "Automatic summary: dataset analyzed for correlations, dominant categories, and outliers. "
             "Recommendations prioritize data quality and business guardrails."
         )
-        return RecommendationResponse(
+        response = RecommendationResponse(
             file_id=self.file_id,
             insights=insight_text,
             business_rules=rules,
@@ -126,5 +171,11 @@ class SmartRecoAgent:
                 for act in actions
             ],
         )
+        cache_entry = cache.get_cache(self.file_id) or {}
+        cache_entry["recommendations"] = response.model_dump()
+        cache.set_cache(self.file_id, cache_entry)
+        return response
+
+
 
 

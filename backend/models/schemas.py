@@ -33,6 +33,9 @@ class UploadResponse(DatasetPreviewResponse):
     """Response after uploading a file."""
 
     original_filename: str
+    delimiter: str | None = None
+    has_header: bool | None = None
+    created_at: Optional[str] = None
 
 
 class AnalyzeResponse(BaseModel):
@@ -44,6 +47,7 @@ class AnalyzeResponse(BaseModel):
     correlation_insights: List[Dict[str, Any]]
     suggested_plots: List[Dict[str, Any]]
     dataset_overview: Dict[str, Any]
+    quality_issues: Optional[List[Dict[str, Any]]] = None
 
 
 class PlotRequest(FileIdRequest):
@@ -116,6 +120,72 @@ class RecommendationResponse(BaseModel):
     insights: str
     business_rules: List[RuleCandidate]
     actions: List[RecommendationItem]
+
+
+class DatasetMeta(BaseModel):
+    """Metadata for persisted datasets."""
+
+    file_id: str
+    name: str
+    rows: int
+    columns: int
+    created_at: str
+    updated_at: Optional[str] = None
+    delimiter: Optional[str] = None
+    encoding: Optional[str] = None
+    has_header: Optional[bool] = None
+
+
+class DatasetListResponse(BaseModel):
+    datasets: List[DatasetMeta]
+
+
+class DrilldownRequest(FileIdRequest):
+    """Request slice for drilldown coming from a graph click."""
+
+    column: str
+    values: Optional[List[Any]] = None
+    min_value: Optional[float] = None
+    max_value: Optional[float] = None
+    limit: int = 200
+
+
+class DrilldownResponse(BaseModel):
+    file_id: str
+    column: str
+    count: int
+    stats: Dict[str, Any]
+    rows: List[Dict[str, Any]]
+
+
+class TemplateDescriptor(BaseModel):
+    id: str
+    name: str
+    description: str
+    layout: Dict[str, Any]
+
+
+class TemplatesResponse(BaseModel):
+    templates: List[TemplateDescriptor]
+
+
+class RuleConfigRequest(FileIdRequest):
+    """Request to update rule thresholds/weights."""
+
+    weights: Dict[str, float] = Field(default_factory=dict)
+    thresholds: Dict[str, float] = Field(default_factory=dict)
+    multipliers: Dict[str, float] = Field(default_factory=dict)
+
+
+class HealthResponse(BaseModel):
+    status: str
+    dataset_loaded: bool
+    last_file_id: Optional[str] = None
+    dataset_count: int = 0
+    rules_loaded: int = 0
+    scored_count: int = 0
+
+
 
 
 

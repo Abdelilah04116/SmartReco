@@ -35,3 +35,5 @@ const RulesPanel = ({ rules }: Props) => {
 export default RulesPanel;
 
 
+
+

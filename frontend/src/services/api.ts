@@ -17,6 +17,9 @@ export interface UploadResponse {
   rows: Record<string, any>[];
   dtypes: Record<string, string>;
   columns: ColumnSummary[];
+  delimiter?: string;
+  has_header?: boolean;
+  created_at?: string;
 }
 
 export interface AnalyzeResponse {
@@ -104,6 +107,52 @@ export interface HealthCheckResponse {
   dataset_loaded: boolean;
   rules_loaded: number;
   scored_count: number;
+  last_file_id?: string | null;
+  dataset_count?: number;
+}
+
+export interface DatasetMeta {
+  file_id: string;
+  name: string;
+  rows: number;
+  columns: number;
+  created_at: string;
+  updated_at?: string;
+  delimiter?: string;
+  encoding?: string;
+  has_header?: boolean;
+}
+
+export interface DatasetListResponse {
+  datasets: DatasetMeta[];
+}
+
+export interface DrilldownRequest {
+  file_id: string;
+  column: string;
+  values?: any[];
+  min_value?: number;
+  max_value?: number;
+  limit?: number;
+}
+
+export interface DrilldownResponse {
+  file_id: string;
+  column: string;
+  count: number;
+  stats: Record<string, any>;
+  rows: Record<string, any>[];
+}
+
+export interface TemplateDescriptor {
+  id: string;
+  name: string;
+  description: string;
+  layout: any;
+}
+
+export interface TemplatesResponse {
+  templates: TemplateDescriptor[];
 }
 
 export const apiService = {
@@ -142,6 +191,14 @@ export const apiService = {
   healthCheck: async () => asJson<HealthCheckResponse>(api.get('/health')),
   generateDashboardFragment: async () => 
     asJson<DashboardFragment>(api.post('/dashboard/generate-fragment')),
+  listDatasets: async () => asJson<DatasetListResponse>(api.get('/datasets')),
+  restoreAnalysis: async (fileId: string) =>
+    asJson<any>(api.post('/datasets/restore', { file_id: fileId })),
+  drilldown: async (payload: DrilldownRequest) =>
+    asJson<DrilldownResponse>(api.post('/drilldown', payload)),
+  listTemplates: async () => asJson<TemplatesResponse>(api.get('/dashboard/templates')),
+  configureRules: async (payload: { file_id: string; weights?: any; thresholds?: any; multipliers?: any }) =>
+    asJson<any>(api.post('/rules/config', payload)),
 };
 
 export default apiService;

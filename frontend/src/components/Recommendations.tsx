@@ -42,3 +42,5 @@ const Recommendations = ({ insights, actions, rules }: Props) => {
 export default Recommendations;
 
 
+
+

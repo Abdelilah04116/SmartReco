@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from models.schemas import DatasetPreviewResponse, UploadResponse
 from utils import helpers
+from utils import dataset_registry
 
 router = APIRouter(tags=["upload"])
 
@@ -18,9 +19,21 @@ async def upload_dataset(file: UploadFile = File(...)) -> UploadResponse:
     if not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files are supported.")
 
-    file_id, _ = helpers.save_upload_file(file)
+    file_id, encoding, delimiter, has_header = helpers.save_upload_file(file)
     df = helpers.load_dataframe(file_id)
     preview = helpers.get_preview(df)
+
+    dataset_registry.register_dataset(
+        file_id,
+        name=helpers.get_registered_file_name(file_id),
+        path=str(helpers.get_path(file_id)),
+        encoding=encoding,
+        rows=len(df),
+        columns=len(df.columns),
+        delimiter=delimiter,
+        has_header=has_header,
+        detected_types={col: str(dtype) for col, dtype in df.dtypes.items()},
+    )
 
     return UploadResponse(
         file_id=file_id,
@@ -28,6 +41,9 @@ async def upload_dataset(file: UploadFile = File(...)) -> UploadResponse:
         rows=preview["rows"],
         dtypes=preview["dtypes"],
         columns=preview["columns"],
+        delimiter=delimiter,
+        has_header=has_header,
+        created_at=dataset_registry.get_dataset(file_id)["created_at"],
     )
 
 
@@ -43,5 +59,7 @@ async def get_dataset(file_id: str) -> DatasetPreviewResponse:
     return DatasetPreviewResponse(
         file_id=file_id, rows=preview["rows"], dtypes=preview["dtypes"], columns=preview["columns"]
     )
+
+
 
 

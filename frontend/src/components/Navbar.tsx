@@ -46,6 +46,16 @@ const Navbar = () => {
               >
                 Dashboard
               </Link>
+              <Link
+                to="/history"
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive('/history')
+                    ? 'bg-primary-100 text-primary-700'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                History
+              </Link>
             </div>
           </div>
         </div>

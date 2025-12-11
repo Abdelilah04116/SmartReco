@@ -29,3 +29,5 @@ const PlotGallery = ({ plots }: Props) => {
 export default PlotGallery;
 
 
+
+

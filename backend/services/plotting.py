@@ -104,3 +104,5 @@ def generate_plots(df: pd.DataFrame, plot_requests: List[Dict[str, Any]]) -> Lis
     return results
 
 
+
+

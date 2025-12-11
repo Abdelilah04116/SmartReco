@@ -87,3 +87,5 @@ def extract_rules(df: pd.DataFrame, column_types: Dict[str, str]) -> List[RuleCa
     return unique_rules
 
 
+
+
